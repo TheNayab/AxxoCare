@@ -1,4 +1,4 @@
-const Shop = require("../Models/shopModel");
+const order = require("../Models/orderModel");
 const User = require("../Models/userModel");
 const express = require("express");
 const { default: mongoose } = require("mongoose");
@@ -8,7 +8,7 @@ const AuthenticatedRoles = require("../Middleware/authrole");
 const router = express.Router();
 
 const Storage = multer.diskStorage({
-  destination: "uploads/Shops",
+  destination: "uploads/orders",
   filename: (req, file, cb) => {
     cb(null, file.originalname);
   },
@@ -18,15 +18,15 @@ const upload = multer({
   storage: Storage,
 }).single("testImage");
 
-// Create Shop
-router.post("/add-shop", isAuthenticated, async (req, res, next) => {
+// Create order
+router.post("/add-order", isAuthenticated, async (req, res, next) => {
   let existingUser = await User.findById(req.user.id);
 
   req.body.images = upload(req, res, async (err) => {
     if (err) {
       console.log(err);
     } else {
-      const shop = new Shop({
+      const order = new order({
         name: req.body.name,
         Cnic: req.body.Cnic,
         Pharmacyname: req.body.Pharmacyname,
@@ -42,26 +42,26 @@ router.post("/add-shop", isAuthenticated, async (req, res, next) => {
       try {
         var session = await mongoose.startSession();
         session.startTransaction();
-        await shop.save(session);
-        existingUser.shops.push(shop);
+        await order.save(session);
+        existingUser.orders.push(order);
         await existingUser.save(session);
         await session.commitTransaction();
       } catch (err) {
         return res.status(500).json(err);
       }
-      return res.status(200).json({ shop });
+      return res.status(200).json({ order });
     }
   });
 });
 
-// All shops by admin
+// All orders by admin
 router.get(
-  "/allshops",
+  "/allorders",
   isAuthenticated,
   AuthenticatedRoles("admin", "super-admin"),
   async (req, res) => {
-    const Count = await Shop.countDocuments();
-    const shop = await Shop.find()
+    const Count = await order.countDocuments();
+    const order = await order.find()
       .exec()
       .then((result) => {
         res.status(200).json({ Count, result });
@@ -78,11 +78,11 @@ router.get(
   isAuthenticated,
   AuthenticatedRoles("admin"),
   async (req, res) => {
-    await Shop.find({ isapproved: "false" })
+    await order.find({ isapproved: "false" })
       .exec()
-      .then((shop) => {
+      .then((order) => {
         res.status(200).json({
-          shop,
+          order,
         });
       })
       .catch((err) => {
@@ -97,12 +97,12 @@ router.get(
   isAuthenticated,
   AuthenticatedRoles("admin", "super-admin"),
   async (req, res) => {
-    const shop = await Shop.findById(req.params.id)
+    const order = await order.findById(req.params.id)
       .exec()
       .then((result) => {
         if (!result) {
           return res.status(400).json({
-            message: "shop of this user not found",
+            message: "order of this user not found",
           });
         } else {
           if (result.isapproved === "false") {
@@ -132,12 +132,12 @@ router.get(
   isAuthenticated,
   AuthenticatedRoles("admin", "super-admin"),
   async (req, res) => {
-    const shop = await Shop.findById(req.params.id)
+    const order = await order.findById(req.params.id)
       .exec()
       .then((result) => {
         if (!result) {
           return res.status(400).json({
-            message: "shop of this user not found",
+            message: "order of this user not found",
           });
         } else {
           if (result.isapproved === "false") {
@@ -161,13 +161,13 @@ router.get(
   }
 );
 
-// Update shop by user himself
-router.put("/updateshop/:id", isAuthenticated, async (req, res) => {
+// Update order by user himself
+router.put("/updateorder/:id", isAuthenticated, async (req, res) => {
   upload(req, res, async (err) => {
     if (err) {
       console.log(err);
     } else {
-      const shop = await Shop.findByIdAndUpdate(req.params.id, {
+      const order = await order.findByIdAndUpdate(req.params.id, {
         name: req.body.name,
         Cnic: req.body.Cnic,
         Pharmacyname: req.body.Pharmacyname,
@@ -178,9 +178,9 @@ router.put("/updateshop/:id", isAuthenticated, async (req, res) => {
         },
       });
       try {
-        if (!shop) {
+        if (!order) {
           return res.status(400).json({
-            message: "shop with this Id is not found",
+            message: "order with this Id is not found",
           });
         }
         return res.status(200).json({
@@ -195,28 +195,28 @@ router.put("/updateshop/:id", isAuthenticated, async (req, res) => {
   });
 });
 
-// Delete shop
-router.delete("/deleteshop/:id", isAuthenticated, async (req, res) => {
+// Delete order
+router.delete("/deleteorder/:id", isAuthenticated, async (req, res) => {
   let existingUser = await User.findById(req.user.id);
 
-  let shop = await Shop.findById(req.params.id);
-  if (!shop) {
+  let order = await order.findById(req.params.id);
+  if (!order) {
     return res.status(402).json({
-      message: "shop with this Id is not found",
+      message: "order with this Id is not found",
     });
   }
-  await existingUser.shops.pull(shop);
+  await existingUser.orders.pull(order);
   await existingUser.save();
-  shop = await Shop.findByIdAndRemove(req.params.id)
+  order = await order.findByIdAndRemove(req.params.id)
     .exec()
     .then(async () => {
-      if (!shop) {
+      if (!order) {
         return res.status(402).json({
-          message: "shop with this Id is not found",
+          message: "order with this Id is not found",
         });
       } else {
         return res.status(200).json({
-          message: "This shop is deleted successfully",
+          message: "This order is deleted successfully",
         });
       }
     })
@@ -228,18 +228,18 @@ router.delete("/deleteshop/:id", isAuthenticated, async (req, res) => {
 });
 
 // get user location
-router.put("/shop/location/:id", isAuthenticated, async (req, res, next) => {
-  const shop = await Shop.findById(req.params.id);
-  if (!shop) {
+router.put("/order/location/:id", isAuthenticated, async (req, res, next) => {
+  const order = await order.findById(req.params.id);
+  if (!order) {
     return res.status(400).json({
-      message: "Shop not found",
+      message: "order not found",
     });
   } else {
-    shop.location = req.body.location;
-    shop.save();
+    order.location = req.body.location;
+    order.save();
   }
   return res.status(200).json({
-    shop,
+    order,
   });
 });
 
